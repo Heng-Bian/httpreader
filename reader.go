@@ -10,6 +10,9 @@ import (
 	"strings"
 )
 
+// A Reader implements the io.Reader, io.ReaderAt, io.Seeker
+// interfaces by reading from
+// a http response body.
 type Reader struct {
 	//the current reading offset
 	off int64
