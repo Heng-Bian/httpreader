@@ -11,38 +11,48 @@ import (
 )
 
 type Reader struct {
-	off    int64
+	//the current reading offset
+	off int64
+	//the size of the associated URL resource
 	Length int64
 	//HeadBytes is the first bytes and max size is 512
 	HeadBytes []byte
 
-	URL     *url.URL
-	client  *http.Client
-	resp    *http.Response
+	URL    *url.URL
+	client *http.Client
+	resp   *http.Response
+	//http request header
 	Header  http.Header
 	ifRange string
 	discard []byte
 }
 type Option func(option *Reader)
 
+// Specify the http client
 func WithClient(client *http.Client) Option {
 	return func(r *Reader) {
 		r.client = client
 	}
 }
 
+// Specify the http request header
 func WithHeader(header http.Header) Option {
 	return func(r *Reader) {
 		r.Header = header
 	}
 }
 
+// Specify the max discard size.
+// Reader try to reuse the http response body according to the parameter
 func WithDiscard(maxDiscard int) Option {
 	return func(r *Reader) {
 		r.discard = make([]byte, maxDiscard)
 	}
 }
 
+// ReadAt reads len(p) bytes from the ranged-over source.
+// It returns the number of bytes read and the error, if any.
+// ReadAt always returns a non-nil error when n < len(b). At end of file, that error is io.EOF.
 func (r *Reader) ReadAt(p []byte, off int64) (int, error) {
 	_, err := r.Seek(off, io.SeekStart)
 	if err != nil {
@@ -51,6 +61,9 @@ func (r *Reader) ReadAt(p []byte, off int64) (int, error) {
 	return r.Read(p)
 }
 
+// Read reads len(p) bytes from ranged-over source.
+// It returns the number of bytes read and the error, if any.
+// EOF is signaled by a zero count with err set to io.EOF.
 func (r *Reader) Read(p []byte) (int, error) {
 	if r.off >= r.Length {
 		return 0, io.EOF
@@ -89,6 +102,7 @@ func (r *Reader) Seek(off int64, whence int) (int64, error) {
 
 	length := off - r.off
 	if length <= int64(len(r.discard)) && length >= 0 {
+		//try to reuse the http response body
 		n, err := r.Read(r.discard[:length])
 		if n != int(length) {
 			return r.off, errors.New("discard bytes error")
@@ -106,6 +120,8 @@ func (r *Reader) Seek(off int64, whence int) (int64, error) {
 	return r.off, nil
 }
 
+// Close the associated http response body
+// It is the caller's responsibility to close the Reader
 func (r *Reader) Close() error {
 	if r.resp != nil {
 		return r.resp.Body.Close()
@@ -198,6 +214,9 @@ func validatorFromResponse(resp *http.Response) (string, error) {
 	return "", errors.New("no applicable validator in response")
 }
 
+// NewReader returns a newly-initialized Reader,
+// which also try to fetch the first 512 bytes
+// It returns the new reader and an error, if any.
 func NewReader(u *url.URL, opts ...Option) (*Reader, error) {
 	reader := &Reader{
 		URL:     u,
