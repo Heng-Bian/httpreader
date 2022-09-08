@@ -3,7 +3,6 @@ package httpreader
 import (
 	"archive/zip"
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,9 +14,10 @@ import (
 
 var server *httptest.Server
 var now = time.Now()
+var content = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func TestMain(m *testing.M) {
-	content := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 	reader := bytes.NewReader([]byte(content))
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
@@ -43,9 +43,8 @@ func TestZip(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	for _, value := range zipReader.File {
-		fmt.Printf("%v\n", value.Name)
-	}
+	t.Log(zipReader.File[0].Name)
+
 }
 func TestReadFirstOne(t *testing.T) {
 	r, err := reader()
@@ -74,4 +73,80 @@ func TestReadAtLast(t *testing.T) {
 	if n != 1 && buf[0] != 'Z' {
 		t.Error(buf[0])
 	}
+}
+
+func TestReadEOF(t *testing.T) {
+	r, err := reader()
+	if err != nil {
+		t.Error(err)
+	}
+	buf := make([]byte, 2)
+	n, err := r.ReadAt(buf, 24)
+	if n != 2 || buf[0] != 'Y' || buf[1] != 'Z' {
+		t.Error("read error")
+	}
+	if err != io.EOF {
+		t.Error("not EOF")
+	}
+}
+
+func TestReadFull(t *testing.T) {
+	r, err := reader()
+	if err != nil {
+		t.Error(err)
+	}
+	buf := make([]byte, 64)
+	n, err := r.Read(buf)
+	if n != 26 || buf[0] != 'A' || buf[25] != 'Z' {
+		t.Error("read error")
+	}
+	if err != io.EOF {
+		t.Error("not EOF")
+	}
+}
+
+func TestReadUntilEOF(t *testing.T) {
+	r, err := reader()
+	if err != nil {
+		t.Error(err)
+	}
+	buf := make([]byte, 3)
+	data := make([]byte, 64)
+	index := 0
+	for {
+		n, err := r.Read(buf)
+		if err != nil {
+			if err != io.EOF {
+				t.Error(err)
+			}
+			copy(data[index:], buf[:n])
+			index = index + n
+			break
+		}
+		copy(data[index:], buf[:n])
+		index = index + n
+	}
+	if string(data[:index]) != content {
+		t.Error(string(data[:index]))
+	}
+}
+
+func TestCopy(t *testing.T) {
+	r, err := reader()
+	if err != nil {
+		t.Error(err)
+	}
+	data := make([]byte, 0, 64)
+	w := bytes.NewBuffer(data)
+	n, err := io.Copy(w, r)
+	if err != nil || n != 26 {
+		t.Error(err)
+	}
+	if w.String() != content {
+		t.Error(w.String())
+	}
+}
+
+func TestSkipRead(t *testing.T) {
+
 }
