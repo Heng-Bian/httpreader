@@ -39,6 +39,7 @@ func TestZip(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer r.Close()
 	zipReader, err := zip.NewReader(r, r.Length)
 	if err != nil {
 		t.Error(err)
@@ -51,6 +52,7 @@ func TestReadFirstOne(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer r.Close()
 	buf := make([]byte, 1)
 	n, err := r.Read(buf)
 	if err != nil {
@@ -65,6 +67,7 @@ func TestReadAtLast(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer r.Close()
 	buf := make([]byte, 1)
 	n, err := r.ReadAt(buf, 25)
 	if err != io.EOF {
@@ -80,6 +83,7 @@ func TestReadEOF(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer r.Close()
 	buf := make([]byte, 2)
 	n, err := r.ReadAt(buf, 24)
 	if n != 2 || buf[0] != 'Y' || buf[1] != 'Z' {
@@ -95,6 +99,7 @@ func TestReadFull(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer r.Close()
 	buf := make([]byte, 64)
 	n, err := r.Read(buf)
 	if n != 26 || buf[0] != 'A' || buf[25] != 'Z' {
@@ -110,6 +115,7 @@ func TestReadUntilEOF(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer r.Close()
 	buf := make([]byte, 3)
 	data := make([]byte, 64)
 	index := 0
@@ -136,6 +142,7 @@ func TestCopy(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer r.Close()
 	data := make([]byte, 0, 64)
 	w := bytes.NewBuffer(data)
 	n, err := io.Copy(w, r)
@@ -148,5 +155,31 @@ func TestCopy(t *testing.T) {
 }
 
 func TestSkipRead(t *testing.T) {
+	r, err := reader()
+	if err != nil {
+		t.Error(err)
+	}
+	defer r.Close()
+	data := make([]byte, 1)
+	r.Read(data)
+	r.Seek(5, io.SeekCurrent)
+	r.Read(data)
+	if data[0] != 'G' {
+		t.Error(data[0])
+	}
+}
 
+func TestSkipDiscardRead(t *testing.T) {
+	r, err := reader()
+	if err != nil {
+		t.Error(err)
+	}
+	defer r.Close()
+	data := make([]byte, 1)
+	r.Read(data)
+	r.Seek(2, io.SeekCurrent)
+	r.Read(data)
+	if data[0] != 'D' {
+		t.Error(data[0])
+	}
 }

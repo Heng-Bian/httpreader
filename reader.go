@@ -11,8 +11,7 @@ import (
 )
 
 // A Reader implements the io.Reader, io.ReaderAt, io.Seeker
-// interfaces by reading from
-// a http response body.
+// interfaces by reading from a http response body.
 type Reader struct {
 	//the current reading offset
 	off int64
@@ -123,7 +122,7 @@ func (r *Reader) Seek(off int64, whence int) (int64, error) {
 	return r.off, nil
 }
 
-// Close the associated http response body
+// Close the associated http response body.
 // It is the caller's responsibility to close the Reader
 func (r *Reader) Close() error {
 	if r.resp != nil {
@@ -166,13 +165,12 @@ func (r *Reader) init() error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	data := make([]byte, 512)
 	n, err := resp.Body.Read(data)
 	if err != nil && err != io.EOF {
-		resp.Body.Close()
 		return err
 	}
-	resp.Body.Close()
 	r.HeadBytes = data[:n]
 	if !statusIsAcceptable(resp.StatusCode) {
 		return fmt.Errorf("unexpected response (status %d)", resp.StatusCode)
