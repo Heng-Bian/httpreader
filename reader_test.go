@@ -21,7 +21,17 @@ func TestMain(m *testing.M) {
 	reader := bytes.NewReader([]byte(content))
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		http.ServeContent(w, r, "", now, reader)
+		switch r.URL.Path {
+		case "/withHeader":
+			if r.Header["X-Test-Header"][0] == "401" {
+				w.WriteHeader(401)
+			} else {
+				http.ServeContent(w, r, "", now, reader)
+			}
+		default:
+			http.ServeContent(w, r, "", now, reader)
+		}
+
 	}
 	server = httptest.NewServer(http.HandlerFunc(handler))
 	os.Exit(m.Run())
@@ -181,5 +191,52 @@ func TestSkipDiscardRead(t *testing.T) {
 	r.Read(data)
 	if data[0] != 'D' {
 		t.Error(data[0])
+	}
+}
+
+func TestSeekOutOfBoundary(t *testing.T) {
+	r, err := reader()
+	if err != nil {
+		t.Error(err)
+	}
+	defer r.Close()
+	_, err = r.Seek(-1, io.SeekStart)
+	if err == nil {
+		t.Error("")
+	}
+	_, err = r.Seek(27, io.SeekStart)
+	if err == nil {
+		t.Error("")
+	}
+}
+
+func TestResourceChanged(t *testing.T) {
+	r, err := reader()
+	if err != nil {
+		t.Error(err)
+	}
+	defer r.Close()
+	data := make([]byte, 1)
+	r.ifRange = "changed"
+	_, err = r.Read(data)
+	if err == nil {
+		t.Error("an error shoule be returned")
+	} else {
+		t.Log(err)
+	}
+}
+
+func TestWithHeader(t *testing.T) {
+	u, err := url.Parse(server.URL + "/withHeader")
+	if err != nil {
+		t.Error(err)
+	}
+	header := make(http.Header, 1)
+	header.Add("X-Test-Header", "401")
+	_, err = NewReader(u, WithDiscard(3), WithHeader(header))
+	if err == nil {
+		t.Error("an error shoule be returned")
+	} else {
+		t.Log(err)
 	}
 }

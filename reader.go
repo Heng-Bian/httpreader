@@ -147,6 +147,9 @@ func (r *Reader) request() error {
 	if err != nil {
 		return err
 	}
+	if resp.StatusCode != 206 {
+		return errors.New("not partical content or resource changed")
+	}
 	r.resp = resp
 	return nil
 }
