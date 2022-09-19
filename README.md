@@ -2,7 +2,8 @@ httpreader
 ============
 ![GitHub](https://img.shields.io/github/license/Heng-Bian/httpreader)
 ![GitHub](https://img.shields.io/badge/build-pass-green)
-![GitHub](https://img.shields.io/badge/build-pass-green)
+![GitHub](https://img.shields.io/badge/coverage-81.9%25-green)
+![GitHub](https://img.shields.io/badge/tests-12%2F12%20tests%20passed-green)
 
 Go package httpreader implements io.ReaderAt, io.Reader, and io.Seeker depending on HTTP Range Requests.
 
