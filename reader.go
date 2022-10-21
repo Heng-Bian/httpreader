@@ -23,6 +23,8 @@ type Reader struct {
 	URL    *url.URL
 	client *http.Client
 	resp   *http.Response
+	//count of http requests
+	Count int
 	//http request header
 	Header  http.Header
 	ifRange string
@@ -144,6 +146,7 @@ func (r *Reader) request() error {
 		},
 	}
 	resp, err := r.client.Do(req)
+	r.Count++
 	if err != nil {
 		return err
 	}
@@ -165,6 +168,7 @@ func (r *Reader) init() error {
 	//first 512 bytes
 	req.Header.Add("Range", "bytes=0-511")
 	resp, err := r.client.Do(req)
+	r.Count++
 	if err != nil {
 		return err
 	}
@@ -226,6 +230,7 @@ func NewReader(u *url.URL, opts ...Option) (*Reader, error) {
 		URL:     u,
 		client:  http.DefaultClient,
 		discard: make([]byte, 1024*4),
+		Count:   0,
 	}
 	for _, o := range opts {
 		o(reader)
