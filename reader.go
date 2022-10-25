@@ -28,7 +28,7 @@ type Reader struct {
 	//http request header
 	Header  http.Header
 	ifRange string
-	discard []byte
+	discard int
 }
 type Option func(option *Reader)
 
@@ -50,19 +50,30 @@ func WithHeader(header http.Header) Option {
 // Reader try to reuse the http response body according to the parameter
 func WithDiscard(maxDiscard int) Option {
 	return func(r *Reader) {
-		r.discard = make([]byte, maxDiscard)
+		r.discard = maxDiscard
 	}
 }
 
 // ReadAt reads len(p) bytes from the ranged-over source.
 // It returns the number of bytes read and the error, if any.
-// ReadAt always returns a non-nil error when n < len(b). At end of file, that error is io.EOF.
 func (r *Reader) ReadAt(p []byte, off int64) (int, error) {
 	_, err := r.Seek(off, io.SeekStart)
 	if err != nil {
 		return 0, err
 	}
-	return r.Read(p)
+	//io.ReadeAt is stricter than io.Reade
+	total := 0
+	for {
+		if total >= len(p) {
+			break
+		}
+		n, err := r.Read(p[total:])
+		if err != nil {
+			return total + n, err
+		}
+		total = total + n
+	}
+	return total, nil
 }
 
 // Read reads len(p) bytes from ranged-over source.
@@ -96,7 +107,7 @@ func (r *Reader) Seek(off int64, whence int) (int64, error) {
 		off = r.Length + off
 	}
 
-	if off > r.Length {
+	if off >= r.Length {
 		return 0, errors.New("seek beyond end of file")
 	}
 
@@ -105,14 +116,14 @@ func (r *Reader) Seek(off int64, whence int) (int64, error) {
 	}
 
 	length := off - r.off
-	if length <= int64(len(r.discard)) && length >= 0 {
+	if length <= int64(r.discard) && length >= 0 {
 		//try to reuse the http response body
-		n, err := r.Read(r.discard[:length])
-		if n != int(length) {
-			return r.off, errors.New("discard bytes error")
-		}
-		if err != nil && err != io.EOF {
+		n, err := io.CopyN(io.Discard, r, length)
+		if err != nil {
 			return 0, err
+		}
+		if n != length {
+			return 0, errors.New("skip data error")
 		}
 	} else {
 		r.off = off
@@ -229,7 +240,7 @@ func NewReader(u *url.URL, opts ...Option) (*Reader, error) {
 	reader := &Reader{
 		URL:     u,
 		client:  http.DefaultClient,
-		discard: make([]byte, 1024*4),
+		discard: 1024 * 512,
 		Count:   0,
 	}
 	for _, o := range opts {
